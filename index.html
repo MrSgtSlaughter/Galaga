@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <link rel="icon" href="./images/Galaga_Fighter.png" type="image/x-icon" />
+    <link rel = "stylesheet" type = "text/css" href = "styles/game.css">
+    <title>Galaga - WarGames Edition</title>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+    <style>
+      #name-entry-screen {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: #000;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        z-index: 9999;
+      }
+      #name-entry-screen.hidden { display: none; }
+      #name-entry-screen h1 {
+        font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+        font-size: 48px;
+        color: #ff0;
+        text-shadow: 0 0 20px #ff0;
+        margin-bottom: 40px;
+      }
+      #name-entry-screen p {
+        font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+        font-size: 20px;
+        color: #0ff;
+        margin-bottom: 20px;
+      }
+      #player-name-input {
+        font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+        font-size: 24px;
+        padding: 15px 30px;
+        background: #111;
+        border: 3px solid #0f0;
+        color: #0f0;
+        text-align: center;
+        text-transform: uppercase;
+        width: 300px;
+        margin-bottom: 10px;
+      }
+      #player-name-input:focus {
+        outline: none;
+        box-shadow: 0 0 20px #0f0;
+      }
+      #name-error {
+        color: #f00;
+        font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+        font-size: 16px;
+        height: 25px;
+        margin-bottom: 20px;
+      }
+      #submit-name-btn {
+        font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+        font-size: 20px;
+        font-weight: bold;
+        color: #fff;
+        text-transform: uppercase;
+        padding: 15px 50px;
+        background: linear-gradient(to bottom, #485563, #29323c);
+        border: none;
+        border-radius: 8px;
+        cursor: pointer;
+        transition: all 0.3s;
+      }
+      #submit-name-btn:hover {
+        background: linear-gradient(to bottom, #29323c, #485563);
+        transform: scale(1.05);
+      }
+      .firebase-leaderboard {
+        margin-top: 30px;
+        text-align: center;
+      }
+      .firebase-leaderboard h3 {
+        color: #ff0;
+        font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+        font-size: 18px;
+        margin-bottom: 10px;
+      }
+      .firebase-leaderboard ol {
+        list-style: none;
+        padding: 0;
+        color: #fff;
+        font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+        font-size: 14px;
+      }
+      .firebase-leaderboard li {
+        padding: 5px 0;
+      }
+      .firebase-leaderboard li:nth-child(1) { color: #ffd700; }
+      .firebase-leaderboard li:nth-child(2) { color: #c0c0c0; }
+      .firebase-leaderboard li:nth-child(3) { color: #cd7f32; }
+    </style>
+  </head>
+  <body onload = "MyGame.game.initialize();" id="body">
+    <!-- Name Entry Screen -->
+    <div id="name-entry-screen">
+      <h1>GALAGA</h1>
+      <p>ENTER YOUR NAME TO PLAY</p>
+      <input type="text" id="player-name-input" placeholder="YOUR NAME" maxlength="10" autocomplete="off">
+      <div id="name-error"></div>
+      <button id="submit-name-btn" onclick="submitPlayerName()">START</button>
+      <div class="firebase-leaderboard">
+        <h3>🏆 TOP PILOTS</h3>
+        <ol id="entry-leaderboard"></ol>
+      </div>
+    </div>
+
+    <img class="logo" src="images/Galaga_logo.svg" title="Galaga Logo">
+    <div id = "game">
+        <div id = "main-menu" class = "screen">
+            <ul class = "menu">
+                <li><button id = "id-new-game">Play&nbsp;Game</button></li>
+                <li><button id = "id-high-scores">High&nbsp;Scores</button></li>
+                <li><button id = "id-help">Options</button></li>
+                <li><button id = "id-about">Credits</button></li>
+            </ul>
+        </div>
+        <div id = "game-play" class = "screen">
+            <canvas id = "id-canvas" class="canvas" width="1200" height="1600"></canvas>
+        </div>
+        <div id = "high-scores" class = "screen">
+            <h1>High Scores</h1>
+            <p style="font-size:0.4em;color:#ff0;">LOCAL SCORES</p>
+            <ol id="high-score-list">
+            </ol>
+            <p style="font-size:0.4em;color:#0ff;margin-top:20px;">🏆 GLOBAL LEADERBOARD</p>
+            <ol id="firebase-score-list" style="font-size:0.5em;color:#0ff;">
+            </ol>
+            <ul class = "menu">
+                <li><button id = "id-reset-high-scores" onclick="resetHighScores()" type="button">Reset High Scores</button></li>
+                <li><button id = "id-high-scores-back">Back</button></li>
+            </ul>
+        </div>
+        <div id = "help" class = "screen">
+            <h1>Options</h1>
+            <p>Move Left: <a id="move-left-btn" href="#">A or &#8592;</a></p>
+            <p>Move Right: <a id="move-right-btn" href="#">D or &#8594;</a></p>
+            <p>Fire Torpedo: <a id="fire-torpedo-btn" href="#">Spacebar</a></p>
+            <p>Classic Torpedo Limit: <label class="switch">
+                <input type="checkbox" id="torpedo-limit-toggle">
+                <span class="slider round"></span>
+            </label></p>
+            <ul class = "menu">
+                <li><button id = "resetOptions" onclick="resetOptions()">Reset</button></li>
+                <li><button id = "id-help-back">Back</button></li>
+            </ul>
+        </div>
+        <div id = "about" class = "screen">
+            <h1>Credits</h1>
+            <p>Josh Williams</p>
+            <p>Based on Galaga by Namco</p>
+            <ul class = "menu">
+                <li><button id = "id-about-back">Back</button></li>
+            </ul>
+        </div>
+    </div>
+    <div id = "mobile-controls">
+        <input id="mobile-movement" type="range" min="0" max="100" value="50">
+        <button id="mobile-fire"></button>
+    </div>
+
+    <script>
+        let MyGame = {
+            screens : {},
+            input: {},
+            objects: {},
+            render: []
+        };
+    </script>
+    <script src = "scripts/systems/math.js"></script>
+    <script src = "scripts/systems/input-keyboard.js"></script>
+    <script src = "scripts/update.js"></script>
+    <script src = "scripts/render.js"></script>
+    <script src = "scripts/systems/particles.js"></script>
+    <script src = "scripts/systems/loadImages.js"></script>
+    <script src = "scripts/systems/loadSounds.js"></script>
+    <script src = "scripts/systems/pathing.js"></script>
+    <script src = "scripts/stages.js"></script>
+    <script src = "scripts/systems/savescores.js"></script>
+    <script src = "scripts/systems/saveOptions.js"></script>
+    <script src = "scripts/pages/game.js"></script>
+    <script src = "scripts/pages/mainmenu.js"></script>
+    <script src = "scripts/pages/highscores.js"></script>
+    <script src = "scripts/pages/help.js"></script>
+    <script src = "scripts/pages/about.js"></script>
+    <script src = "scripts/gameplay.js"></script>
+    <script>
+      // Firebase Configuration
+      const firebaseConfig = {
+        apiKey: "AIzaSyC-3Nf96W-AKn-J2gyn9krCB3n5O5iISOo",
+        authDomain: "cell-battle-game.firebaseapp.com",
+        databaseURL: "https://cell-battle-game-default-rtdb.firebaseio.com",
+        projectId: "cell-battle-game",
+        storageBucket: "cell-battle-game.firebasestorage.app",
+        messagingSenderId: "482967839438",
+        appId: "1:482967839438:web:7b291ef4b2d2bc098a269f"
+      };
+      firebase.initializeApp(firebaseConfig);
+      const firebaseDB = firebase.database();
+
+      // Player name storage
+      let currentPlayerName = '';
+
+      // Check for saved name
+      (function() {
+        const saved = localStorage.getItem('galaga_player_name');
+        if (saved) {
+          document.getElementById('player-name-input').value = saved;
+        }
+        loadFirebaseLeaderboard();
+      })();
+
+      function submitPlayerName() {
+        const input = document.getElementById('player-name-input');
+        const name = input.value.trim().toUpperCase();
+        
+        if (name.length < 2) {
+          document.getElementById('name-error').textContent = 'NAME MUST BE AT LEAST 2 CHARACTERS';
+          return;
+        }
+        
+        currentPlayerName = name;
+        localStorage.setItem('galaga_player_name', name);
+        document.getElementById('name-entry-screen').classList.add('hidden');
+      }
+
+      // Allow Enter key to submit
+      document.getElementById('player-name-input').addEventListener('keypress', function(e) {
+        if (e.key === 'Enter') submitPlayerName();
+      });
+      document.getElementById('player-name-input').addEventListener('input', function() {
+        document.getElementById('name-error').textContent = '';
+      });
+
+      // Firebase leaderboard functions
+      function loadFirebaseLeaderboard() {
+        firebaseDB.ref('leaderboards/galaga').orderByChild('score').limitToLast(10).on('value', function(snapshot) {
+          const scores = [];
+          snapshot.forEach(function(child) {
+            scores.push(child.val());
+          });
+          scores.sort(function(a, b) { return b.score - a.score; });
+          
+          const entryList = document.getElementById('entry-leaderboard');
+          if (entryList) {
+            entryList.innerHTML = scores.slice(0, 5).map(function(s, i) {
+              return '<li>' + (i+1) + '. ' + s.name + ' - ' + s.score + '</li>';
+            }).join('') || '<li>No scores yet</li>';
+          }
+        });
+      }
+
+      function saveScoreToFirebase(score, stage) {
+        if (currentPlayerName && score > 0) {
+          firebaseDB.ref('leaderboards/galaga').push({
+            name: currentPlayerName,
+            score: score,
+            stage: stage || 1,
+            timestamp: Date.now()
+          });
+        }
+      }
+    </script>
+
+</body>
+</html>
